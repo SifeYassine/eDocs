@@ -1,4 +1,3 @@
-# PHP + Apache
 FROM php:8.2-apache
 
 WORKDIR /var/www/html
@@ -22,13 +21,13 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql zip
 
-# Copy app files
+# Copy source
 COPY . /var/www/html
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Install PHP dependencies (production)
+# Install PHP dependencies (production only)
 RUN composer install --no-dev --optimize-autoloader
 
 # Optimize Laravel
@@ -45,10 +44,9 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
     chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose port 8080 (Fly.io expects this)
+# Expose port 8080
 EXPOSE 8080
 ENV APACHE_LISTEN_PORT=8080
 RUN sed -i "s/80/8080/g" /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
 
-# Start Apache
 CMD ["apache2-foreground"]
