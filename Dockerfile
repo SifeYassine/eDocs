@@ -1,5 +1,4 @@
 FROM php:8.2-apache
-
 WORKDIR /var/www/html
 
 # Enable mod_rewrite
@@ -30,10 +29,11 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 # Install PHP dependencies (production only)
 RUN composer install --no-dev --optimize-autoloader
 
-# Optimize Laravel
-RUN php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan view:cache
+# Create a default .env file if it doesn't exist
+RUN if [ ! -f .env ]; then cp .env.example .env 2>/dev/null || echo "APP_KEY=" > .env; fi
+
+# Generate application key if needed
+RUN php artisan key:generate --force || true
 
 # Apache root to /public
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
@@ -41,7 +41,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
 # Fix permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+RUN chown -R www-data:www-data /var/www/html && \
     chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Expose port 8080
