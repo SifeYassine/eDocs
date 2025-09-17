@@ -1,6 +1,0 @@
-[build]
-  builder = "paketobuildpacks/builder:base"
-  buildpacks = ["gcr.io/paketo-buildpacks/php"]
-
-[build.env]
-  BP_PHP_VERSION = "8.2"
