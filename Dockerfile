@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zlib1g-dev \
     libzip-dev \
+    libpq-dev \
     zip \
     unzip \
     git \
@@ -18,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql zip
+RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql pgsql zip
 
 # Copy source
 COPY . /var/www/html
@@ -40,13 +41,34 @@ ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Fix permissions
+# Fix initial permissions
 RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+    chmod -R 775 /var/www/html/bootstrap/cache
 
 # Expose port 8080
 EXPOSE 8080
 ENV APACHE_LISTEN_PORT=8080
 RUN sed -i "s/80/8080/g" /etc/apache2/ports.conf /etc/apache2/sites-available/*.conf
 
-CMD ["apache2-foreground"]
+# Create entrypoint script that runs at container startup
+RUN echo '#!/bin/bash\n\
+
+# Create storage directories if they dont exist
+mkdir -p /var/www/html/storage/app/public/documents\n\
+mkdir -p /var/www/html/storage/framework/cache\n\
+mkdir -p /var/www/html/storage/framework/sessions\n\
+mkdir -p /var/www/html/storage/framework/views\n\
+mkdir -p /var/www/html/storage/logs\n\
+
+# Create storage link
+cd /var/www/html && php artisan storage:link --force\n\
+
+# Fix permissions
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache\n\
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache\n\
+
+# Start Apache\n\
+apache2-foreground' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
